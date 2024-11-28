@@ -1,162 +1,138 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+import streamlit as st
+import pandas as pd
+from datetime import datetime
 
-# C extensions
-*.so
+# Initialize the app with a session state
+if "expenses" not in st.session_state:
+    st.session_state["expenses"] = []
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+if "deleted_expenses" not in st.session_state:
+    st.session_state["deleted_expenses"] = []
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+# Helper functions
+def add_expense(category, amount, date):
+    expense = {
+        "Category": category,
+        "Amount": round(amount, 2),
+        "Date": date
+    }  # Round the amount here
+    st.session_state["expenses"].append(expense)
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
 
-# Translations
-*.mo
-*.pot
+def update_expense(index, category, amount, date):
+    st.session_state["expenses"][index] = {
+        "Category": category,
+        "Amount": round(amount, 2),
+        "Date": date
+    }  # Round the amount here
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
 
-# Flask stuff:
-instance/
-.webassets-cache
+def delete_expense(index):
+    deleted_expense = st.session_state["expenses"].pop(
+        index)  # Pop the expense and store it in deleted_expenses
+    st.session_state["deleted_expenses"].append(deleted_expense)
 
-# Scrapy stuff:
-.scrapy
 
-# Sphinx documentation
-docs/_build/
+def search_expenses(query):
+    return [
+        expense for expense in st.session_state["expenses"]
+        if query.lower() in expense["Category"].lower()
+    ]
 
-# PyBuilder
-.pybuilder/
-target/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+def sort_expenses(by, reverse=False):
+    st.session_state["expenses"] = sorted(st.session_state["expenses"],
+                                          key=lambda x: x[by],
+                                          reverse=reverse)
 
-# IPython
-profile_default/
-ipython_config.py
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+# Streamlit app layout
+st.title("Personal Expense Tracker")
+st.sidebar.header("Expense Management")
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
+# Add Expense
+with st.sidebar.expander("Add Expense"):
+    category = st.text_input("Category")
+    amount = st.number_input("Amount", min_value=0.0, format="%.2f")
+    date = st.date_input("Date", value=datetime.now().date())
+    if st.button("Add Expense"):
+        add_expense(category, amount, date.strftime("%Y-%m-%d"))
+        st.success("Expense added!")
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
+# Update/Delete Expense
+st.header("Expenses")
+if st.session_state["expenses"]:
+    # Formatting amount column to 2 decimal places
+    df = pd.DataFrame(st.session_state["expenses"])
+    df["Amount"] = df["Amount"].apply(
+        lambda x: round(x, 2))  # rounding to 2 decimals
+    st.table(df)
 
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
-.pdm.toml
-.pdm-python
-.pdm-build/
+    with st.expander("Update/Delete Expense"):
+        index = st.number_input("Select Index to Update/Delete",
+                                min_value=0,
+                                max_value=len(df) - 1)
+        new_category = st.text_input(
+            "New Category",
+            value=st.session_state["expenses"][index]["Category"])
+        new_amount = st.number_input(
+            "New Amount",
+            min_value=0.0,
+            format="%.2f",
+            value=st.session_state["expenses"][index]["Amount"])
+        new_date = st.date_input(
+            "New Date",
+            value=datetime.strptime(
+                st.session_state["expenses"][index]["Date"],
+                "%Y-%m-%d").date())
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Update Expense"):
+                update_expense(index, new_category, new_amount,
+                               new_date.strftime("%Y-%m-%d"))
+                st.success("Expense updated!")
+        with col2:
+            if st.button("Delete Expense"):
+                delete_expense(index)
+                st.success("Expense deleted!")
+else:
+    st.write("No expenses recorded.")
 
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
+# Button to show Deleted Expenses History
+if st.button("Show Deleted Expenses History"):
+    if st.session_state["deleted_expenses"]:
+        deleted_df = pd.DataFrame(st.session_state["deleted_expenses"])
+        deleted_df["Amount"] = deleted_df["Amount"].apply(
+            lambda x: round(x, 2))  # rounding to 2 decimals
+        st.table(deleted_df)
+    else:
+        st.write("No deleted expenses.")
 
-# SageMath parsed files
-*.sage.py
+# Search Expenses
+st.header("Search Expenses")
+query = st.text_input("Search by Category")
+if st.button("Search"):
+    results = search_expenses(query)
+    if results:
+        # Formatting amount column to 2 decimal places for search results
+        search_results_df = pd.DataFrame(results)
+        search_results_df["Amount"] = search_results_df["Amount"].apply(
+            lambda x: round(x, 2))  # rounding to 2 decimals
+        st.table(search_results_df)
+    else:
+        st.write("No results found.")
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# Sort Expenses
+st.header("Sort Expenses")
+col1, col2 = st.columns(2)
 
-# Spyder project settings
-.spyderproject
-.spyproject
+with col1:
+    sort_by = st.selectbox("Sort By", ["Category", "Amount", "Date"])
+with col2:
+    order = st.selectbox("Order", ["Ascending", "Descending"])
 
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+if st.button("Sort"):
+    sort_expenses(sort_by, reverse=(order == "Descending"))
+    st.success("Expenses sorted!")
